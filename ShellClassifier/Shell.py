@@ -120,34 +120,50 @@ def standardize(x_data, y_data):
     return (train_data, test_data)
 
 # Process the datasets and splits the data.
-def process_info(dataset, classifier):
+def process_info(data, target, classifier):
     test = float(get_test_size())
     state = int(get_status())
     k = int(get_k_value())
-    train_data, test_data, train_target, test_target = tsp(dataset.data, dataset.target, test_size=test,
-                                                           random_state=state)
-    #print ("\n\n", standardize(train_data, test_data))
+
+    train_data, test_data, train_target, test_target = tsp(data, target, test_size=test, random_state=state)
 
     train_data_std, test_data_std = standardize(train_data, test_data)
     classifier.train(train_data_std, test_data_std)
     get_accuracy(classifier.predict(k, train_data_std, train_target, test_data_std), test_target)
+    print ("\n")
 
 
 # Driver of the program - will load data sets and call appropriate
 # functions to process the data.
 def main(argv):
-    #dataset = pds.read_csv("cars3.csv")
-    dataset = datasets.load_iris()
-
+    letter = 10
     classif = KnnClassifier()
 
-    #print (dataset)
+    while letter != 1 or letter != 2 or letter != 0:
+        print("Please choose one of the following")
+        print("\t0. Type 0 to quit")
+        print("\t1. Load from a CSV file")
+        print("\t2. Load from a built in data set")
 
-    process_info(dataset, classif)
+
+        letter = int(input("> "))
+
+        if (letter == 1):
+            dataset = pds.read_csv("cars3.csv")
+            data = dataset[['data', 'data1', 'data2', 'data3', 'data4', 'data5']]
+            target = dataset['target']
+            process_info(data.values, target.values, classif)
+
+        if (letter == 2):
+            dataset2 = datasets.load_iris()
+            data = dataset2.data
+            target = dataset2.target
+            process_info(data, target, classif)
+
+        if (letter == 0):
+            return
 
 
-
-#get_accuracy(predictions, test_target)
 
 if __name__ == "__main__":
     main(sys.argv)
