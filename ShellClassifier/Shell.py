@@ -32,10 +32,6 @@ def get_status():
 
 
 
-#classifier = knclass(n_neighbors=3)
-#classifier.fit(train_data, train_target)
-#predictions = classifier.predict(test_data)
-# train_data, test_data, train_target, test_target = tsp(iris.data, iris.target, test_size, random_state=17)
 
 # CLASS: HardCoded
 class HardCoded:
@@ -136,31 +132,48 @@ def process_info(data, target, classifier):
 # Driver of the program - will load data sets and call appropriate
 # functions to process the data.
 def main(argv):
-    letter = 10
+    number = 10
     classif = KnnClassifier()
 
-    while letter != 1 or letter != 2 or letter != 0:
+    while number != 1 or number != 2 or number != 0:
         print("Please choose one of the following")
         print("\t0. Type 0 to quit")
         print("\t1. Load from a CSV file")
-        print("\t2. Load from a built in data set")
+        print("\t2. Load from the Iris study")
+        print("\t3. Load from the Breast Cancer Study")
+        #print("\t4. Use the KnnClassifier built into sklearn")
 
 
-        letter = int(input("> "))
+        number = int(input("> "))
 
-        if (letter == 1):
+        if (number == 1):
             dataset = pds.read_csv("cars3.csv")
             data = dataset[['data', 'data1', 'data2', 'data3', 'data4', 'data5']]
             target = dataset['target']
             process_info(data.values, target.values, classif)
 
-        if (letter == 2):
+        if (number == 2):
             dataset2 = datasets.load_iris()
             data = dataset2.data
             target = dataset2.target
             process_info(data, target, classif)
 
-        if (letter == 0):
+        if (number == 3):
+            dataset2 = datasets.load_breast_cancer()
+            data = dataset2.data
+            target = dataset2.target
+            process_info(data, target, classif)
+
+        # if (number == 4):
+        #
+        #     train_data, test_data, train_target, test_target = tsp(data, target, test_size=test, random_state=state)
+        #
+        #     classifier = knclass(n_neighbors=3)
+        #     classifier.fit(train_data, train_target)
+        #     predictions = classifier.predict(test_data)
+
+
+        if (number == 0):
             return
 
 
