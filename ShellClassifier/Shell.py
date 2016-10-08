@@ -132,7 +132,7 @@ def process_info(data, target, classifier):
 # Driver of the program - will load data sets and call appropriate
 # functions to process the data.
 def main(argv):
-    number = 10
+    number = -1
     classif = KnnClassifier()
 
     while number != 1 or number != 2 or number != 0:
