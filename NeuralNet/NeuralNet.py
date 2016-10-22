@@ -3,7 +3,7 @@ from sklearn.cross_validation import train_test_split as tsp
 from sklearn import preprocessing
 from random import triangular as tri
 
-
+import math
 import pandas as pds
 import numpy as np
 import sys
@@ -16,31 +16,94 @@ class Neuron:
         self.set_of_weights = [tri(-1.0, 1.0) for att in range(attribute_num + 1)]
         self.bias = -1
         self.threshold = 0
+        self.activate_val = 0
+
 
     # Output function - Multiplies weights and inputs then sums them together.
-    #
+    # This is our hj values
     def output(self, act_inputs):
         act_inputs = np.append(act_inputs, self.bias)
-        return 1 if sum([self.set_of_weights[i] * x_val for i, x_val in enumerate(act_inputs)]) >= self.threshold else 0
+        sum = 0;
+        for w, input in enumerate(act_inputs):
+            sum += (self.set_of_weights[w] * input)
 
+        sig_val = self.sigmoidal(sum)
 
+        #print(sig_val)
+        return sig_val
+        #return 0 if sum < self.threshold else 1
+        #return 1 if sum([self.set_of_weights[i] * x_val for i, x_val in enumerate(act_inputs)]) >= self.threshold else 0
+
+    def sigmoidal(self, sum_hj):
+        activate_val = 1/(1 + math.exp(-(sum_hj)))
+        return activate_val
+
+# class layer:
+#     def __init__(self):
+#         self.num_of_nodes = 0
 
 class Network:
-    def __init__(self, num_of_neuron, num_of_attributes):
-        self.nodes = [Neuron(num_of_attributes) for _ in range(num_of_neuron)]
+    def __init__(self, num_layers, data, num_of_targets):
+        self.layers = []
+        self.total_results = []
+
+
+        # A for loop looping from 0 - number of layers
+        # We then create a neuron and if x is greater than 0 we create the
+        # network with 1 - the amount of layers. Otherwise we
+        # for x in range(0, num_of_layers):
+        #     self.layers.append([Neuron(len(self.layers[x - 1]) if x > 0 else data.shape[1])
+        #                                for _ in range(int(input("How many Neurons for layer " + str(x) + "?
+        for i in range(0, num_layers):
+            self.layers.append(self.create_layers(num_layers, i, data, num_of_targets))
+
+
+    def create_layers(self, num_layers, layer_num, data, num_tar):
+        # Hidden Layer
+        if layer_num > 0 and layer_num < num_layers - 1:
+            #print("hidden layer")
+            return [Neuron(len(self.layers[layer_num - 1]))
+                    for _ in range(int(input("How many Neuron in layer " + str(layer_num) + "? ")))]
+
+        # first or input layer
+        elif layer_num == 0:
+            #print("first layer")
+            return [Neuron(data.shape[1])
+                    for _ in range(int(input("How many Neuron in layer " + str(layer_num) + "? ")))]
+
+        # last or output layer
+        else:
+           # print("last layer")
+            return [Neuron(len(self.layers[layer_num - 1])) for _ in range(num_tar)]
+
 
     def results(self, actual_inputs):
-        return [node.output(actual_inputs) for node in self.nodes]
+        results = []
 
-    def print_outputs(self, data):
-        for a_inputs in data:
-            print(self.results(a_inputs))
+        for i, layer in enumerate(self.layers):
+            results.append([node.output(results[i - 1] if i > 0 else actual_inputs) for node in layer])
 
-    def train(self):
-        pass
+        return results
 
-    def predict(self):
-        pass
+    def print_outputs(self):
+      for row in self.total_results:
+          print(row[-1])
+
+    def train(self, train_data):
+        for a_inputs in train_data:
+            activation_num = self.results(a_inputs)
+            #print(activation_num[-1])
+            self.total_results.append(activation_num)
+
+    def predict(self, test_data):
+        pre = []
+        for t in test_data:
+            pre.append(self.results(t))
+
+        #print("lenght of pre: ", len(pre))
+        # for p in pre:
+        #     print(p[-1])
+        return pre
 
 
 # Get the size of the test
@@ -65,15 +128,17 @@ def get_status():
 
 
 
-
 # Calculates the accuracy
 def get_accuracy(results_of_predict, test_targets):
     value_correct = 0
-    for i in range(test_targets.size):
-        value_correct += results_of_predict[i] == test_targets[i]
+
+    for rop, test_t in zip(results_of_predict, test_targets):
+        if (test_t == rop.index(max(rop))):
+            value_correct += 1
 
     print("\nCorrectly foretold ", value_correct, " of ", test_targets.size, "\nI was correct ",
           "{0:.2f}% of the time!!!".format(100 * (value_correct / test_targets.size)), sep="")
+
 
 
 
@@ -96,11 +161,14 @@ def process_info(data, target, classifier):
 
     train_data_std, test_data_std = standardize(train_data, test_data)
 
-    return train_data_std, test_data_std
+    classifier.train(train_data_std)
+    get_accuracy(classifier.predict(test_data), test_target)
 
-    #classifier.train(train_data_std, test_data_std)
-    #get_accuracy(classifier.predict(train_data_std, train_target, test_data_std), test_target)
-    print ("\n")
+
+    # predict_results = classifier.predict(test_data_std)
+    # get_neural_accuracy(predict_results, target)
+
+    #get_accuracy()
 
 
 def load_file(filename):
@@ -115,8 +183,16 @@ def load_file(filename):
     return data.values, target.values
 
 def load_dataset(data_set):
-
     return data_set.data, data_set.target
+
+def target_num(targets):
+    targ = []
+    for t in targets:
+        if t not in targ:
+            targ.append(t)
+
+
+    return len(targ)
 
 
 # Driver of the program - will load data sets and call appropriate
@@ -125,29 +201,51 @@ def main(argv):
 
     # Iris dataset
     data, targets = load_dataset(datasets.load_iris())
-
+    #print(targets)
     # Pima Dataset
     #data, targets = load_file("pima.csv")
 
     # Get number of neurons and columns
-    num_neurons = int(input("How many Neurons do you want? "))
+    #num_layers = int(input("How many layers do you want? "))
     num_cols = len(data[0])
+
+    # get the num_of_targets to force number of last layer neurons
+    num_targets = target_num(targets)
+    #print("num targets", num_targets)
+
+
+    num_layers = 0
+    while num_layers < 1:
+        num_layers = int(input("How many layers do you want? "))
 
 
     # Make the Network
-    neural_net = Network(num_neurons, num_cols)
+    neural_net = Network(num_layers, data, num_targets)
 
-    train_data, test_data = process_info(data, targets, neural_net)
+    process_info(data, targets, neural_net)
+
+    # for i in neural_net.total_results:
+    #     print(i)
+    # #
+
+
+   # train_data, test_data = process_info(data, targets, neural_net)
+
+    # Train the algorithm
+    #neural_net.train(train_data)
 
     # Print the output of the neuron
-    neural_net.print_outputs(train_data)
+    #neural_net.print_outputs()
 
 
 
-    # for i in range(len(data)):
-    #     print(neural_net.nodes[i].set_of_weights)
-    #
 
+
+
+
+    #get_accuracy(classifier.predict(train_data_std, train_target, test_data_std), test_target)
+
+    #print(neural_net.total_results)
 
 
     # while number != 1 or number != 2 or number != 0:
