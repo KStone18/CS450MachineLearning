@@ -1,174 +1,102 @@
-import sys
-from sklearn import datasets
-from sklearn.cross_validation import train_test_split as tts
-import pandas as pd
-import numpy as np
-from sklearn import preprocessing as prepros
 from random import triangular as tri
-import math
+from hardcoded import HardCodedClassifier as hcc
+import numpy as np
+from scipy.special import expit
 
 
 class Neuron:
-    def __init__(self, num_of_attributes):
-        self.weights = [tri(-1.0, 1.0) for _ in range(num_of_attributes + 1)]
+    def __init__(self, num_inputs):
+        self.weights = [tri(-1.0, 1.0) for _ in range(num_inputs + 1)]
         self.threshold = 0
         self.bias = -1
-        self.activate_value = 0
+        self.error = None
 
-    def calc_output(self, inputs):
-        inputs = np.append(inputs, self.bias)
-        weight_sum = 0
+    def output(self, inputs):
+        inputs = np.append(inputs, [self.bias])
+        return self.sigmoid(inputs)
 
-        for count, ele in enumerate(inputs):
-            weight_sum += (self.weights[count] * ele)
-
-        self.activate_value = sigmoid(weight_sum)
-
-        return self.activate_value
+    def sigmoid(self, inputs):
+        return expit(sum([self.weights[i] * x for i, x in enumerate(inputs)]))
 
 
-def load_dataset(s):
-    return s.data, s.target
+class NeuralNetworkClassifier(hcc):
+    def __init__(self):
+        super(hcc).__init__()
+        self.network_layers = self.mean = self.std = self.num_attr = self.l_rate = None
+
+    def train(self, train_data, train_target):
+        self.mean, self.std, self.l_rate = train_data.mean(), train_data.std(), 0.1
+        self.data, self.target = self.standardize(train_data), train_target
+        self.num_attr = self.data.shape[1]
+        self.make_network(int(input("How many hidden layers would you like?\n>> ")))
 
 
-def load_file(file):
-    """
-    Will split the dataset into the data and the targets if being read from a csv file.
-    :param file: the name of the file to be read in
-    :return: the data and the targets of the set
-    """
 
-    df = pd.read_csv(file)
+        accuracy = []
+        prediction = []
+        for i, x in enumerate(self.data):
+            results = self.get_results(x)
+            prediction.append(np.argmax(results[-1]))
+            self.update(self.target[i], x, results)
+            # for epoch in range(int(input("How many Epochs would you like?\n>>"))):
+            #     pass
+        accuracy.append(100 * (sum([self.target[i] == p for i, p in enumerate(prediction)]) / self.target.size))
+        print(accuracy)
 
-    data = df.ix[:, df.columns != "className"]
-    targets = df.ix[:, df.columns == "className"]
+    def get_num_nodes(self, layer, num_layers):
+        return int(input("How many Neurons would you like in hidden layer " + str(
+            layer + 1) + "?\n>> ") if layer < num_layers else len(self.classes))
 
-    names = df.columns
-    #n = names[:-1]
+    def num_inputs(self, layer):
+        return len(self.network_layers[layer - 1]) if layer > 0 else self.num_attr
 
-    return data.values, targets.values
+    def make_network(self, num_layers):
+        self.network_layers = []
+        for i in range(num_layers + 1):
+            self.network_layers.append(self.make_layer(self.num_inputs(i), self.get_num_nodes(i, num_layers)))
 
+    def make_layer(self, num_inputs, num_nodes):
+        return [Neuron(num_inputs) for _ in range(num_nodes)]
 
-def sigmoid(x):
-    return 1 / (1 + math.exp(-x))
+    def get_results(self, inputs):
+        results = []
+        for index, layer in enumerate(self.network_layers):
+            results.append([n.output(results[index - 1] if index > 0 else inputs) for n in layer])
+        return results
 
+    def update(self, target, f_inputs, results):
+        self.update_errors(target, results)
+        self.update_all_weights(f_inputs, results)
 
-class Classifier:
-    def __init__(self, num_layers, data, num_targets):
-        self.layers = []
-        self.all_results = []
+    def update_errors(self, target, results):
+        for i_layer, layer in reversed(list(enumerate(self.network_layers))):
+            for i_neuron, neuron in enumerate(layer):
+                neuron.error = self.get_hidden_error(
+                    results[i_layer][i_neuron], [n.weights[i_neuron] for n in self.network_layers[i_layer + 1]],
+                    [n.error for n in self.network_layers[i_layer + 1]]) if i_layer < len(
+                    results) - 1 else self.get_output_error(results[i_layer][i_neuron], i_neuron == target)
+            # print("Layer {}".format(i_layer), [n.error for n in layer])
 
-        for i in range(0, num_layers):
-            self.layers.append(self.make_layer(num_layers, i, data, num_targets))
-            # self.layers.append([Neuron(len(self.layers[i - 1]) if i > 0 else data.shape[1])
-            #                     for _ in range(int(input("How many neurons for layer " + str(i) + "? ")))])
+    def update_all_weights(self, f_inputs, results):
+        for i, layer in enumerate(self.network_layers):
+            for n in layer:
+                self.update_weights(n, results[i - 1] if i > 0 else f_inputs.tolist())
 
-    def train(self, data):
-        for data_row in data:
-            activation = self.results(data_row)
-            self.all_results.append(activation)
+    def update_weights(self, neuron, inputs):
+        inputs = inputs + [-1]
+        neuron.weights = [w - self.l_rate * inputs[i] * neuron.error for i, w in enumerate(neuron.weights)]
 
-    def predict(self, data_set, target_set):
-        pass
+    def get_output_error(self, result, target):
+        return result * (1 - result) * (result - target)
 
-    def results(self, inputs):
-        res = []
-        for index, layer in enumerate(self.layers):
-            res.append([neuron.calc_output(res[index - 1] if index > 0 else inputs) for neuron in layer])
-        return res
+    def get_hidden_error(self, result, f_weights, errors):
+        return result * (1 - result) * sum([fw * errors[i] for i, fw in enumerate(f_weights)])
 
-    def print_results(self):
-        for row in self.all_results:
-            print(row[-1])
+    def predict_single(self, test_instance):
+        results = self.get_results(self.standardize(test_instance))
+        return np.argmax(results[-1])
 
-    def make_layer(self, num_layers, layer_num, data, num_targets):
-        # hidden
-        if layer_num > 0 and layer_num < num_layers - 1:
-            return [Neuron(len(self.layers[layer_num - 1]))
-                    for _ in range(int(input("Num Neurons for layer" + str(layer_num) + "?")))]
-        # first or input layer
-        elif layer_num == 0:
-            return [Neuron(data.shape[1]) for _ in range(data.shape[1])]
-        # last or output layer
-        else:
-            return [Neuron(len(self.layers[layer_num - 1])) for _ in range(num_targets)]
-
-
-def standarize(train, test):
-    # standardizing logic from http://sebastianraschka.com/Articles/2014_about_feature_scaling.html
-    std_scale = prepros.StandardScaler().fit(train)
-    train_std = std_scale.transform(train)
-    test_std = std_scale.transform(test)
-
-    return train_std, test_std
-
-
-def get_accuracy(results, test_tar):
-    number_correct = 0
-
-    for i in range(test_tar.size):
-        if results[i] == test_tar[i]:
-            number_correct += 1
-
-    print("\nNumber of correct predictions:", number_correct, " of ", test_tar.size)
-    print("Accuracy rate is {0:.2f}%".format((number_correct / test_tar.size) * 100))
-
-
-def data_processing(d_data, d_target, classifier):
-    # user input for how much should be test and random state being used
-    ts = 0
-    while ts < .1 or ts > .5:
-        ts = float(input("Percentage of data for testing (Enter value between .1 and .5): "))
-
-    rs = 0
-    while rs <= 0:
-        rs = int(input("Random state for shuffling (Enter positive integer): "))
-
-    # split the data into test and training sets after it shuffles the data
-    train_data, test_data, train_target, test_target = tts(d_data, d_target, test_size=ts, random_state=rs)
-
-    # normalize the data
-    train_data_std, test_data_std = standarize(train_data, test_data)
-
-    classifier.train(train_data_std)
-
-    #get_accuracy(classifier.predict(train_data_std, train_target, test_data_std), test_target)
-
-
-def num_of_diff_targets(targets):
-    tar = []
-    for t in targets:
-        if t not in tar:
-            tar.append(t)
-    return len(tar)
-
-
-def main(argv):
-    # load the data from the database - choose which data set you want to use
-
-    # iris data
-    data, targets = load_dataset(datasets.load_iris())
-
-    # pima indian diabetes
-    # data, targets = load_file("pima.csv")
-
-    # get the number of attributes
-    num_inputs = len(data[0])
-
-    # number of targets
-    num_targets = num_of_diff_targets(targets)
-
-    num_layers = 0
-    while num_layers < 1:
-        num_layers = int(input("Number of Layers: "))
-
-    # make the classifier
-    classifier = Classifier(num_layers, data, num_targets)
-
-    data_processing(data, targets, classifier)
-
-
-if __name__ == "__main__":
-    main(sys.argv)
+    def standardize(self, data):
+        return (np.asarray(data) - self.mean) / self.std
 
 
