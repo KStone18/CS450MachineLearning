@@ -2,6 +2,7 @@ from sklearn import datasets
 from sklearn.cross_validation import train_test_split as tsp
 from sklearn import preprocessing
 from random import triangular as tri
+import matplotlib.pyplot as plt
 
 import math
 import pandas as pds
@@ -126,11 +127,6 @@ class Network:
         for e in range(self.epoch_num):
             prediction = []
             for data, targets in zip(train_data, targ):
-                # print("Data: ", data)
-                # print("-----------------------------------------------------------------")
-                # print("Targ: ", targets)
-                # print("------------------------------------------------------------------")
-                # print("------------------------------------------------------------------")
                 results = self.results(data)
                 prediction.append(np.argmax(results[-1]))
                 self.update_all(targets, data, results)
@@ -138,10 +134,9 @@ class Network:
             accuracy.append(100 * sum([targ[i] == p for i, p in enumerate(prediction)]) / targ.size)
             #print("Accuracy for Epoch {}: {:.4f}%".format(e + 1, accuracy[e]))
             print("Accuracy for epoch {}: {:.20f}%".format(e + 1, float(accuracy[e])))
-#            print(accuracy[-1])
-            # activation_num = self.results(a_inputs)
-            # self.total_results.append(activation_num)
-
+        if input("Accuracy graph for training? (y/n): ") == 'y':
+            plt.plot(range(1, self.epoch_num + 1), accuracy)
+            plt.show()
 
 
 
@@ -239,10 +234,10 @@ def target_num(targets):
 def main(argv):
 
     # Iris dataset
-    data, targets = load_dataset(datasets.load_iris())
+    #data, targets = load_dataset(datasets.load_iris())
 
     # Pima Dataset
-    #data, targets = load_file("pima.csv")
+    data, targets = load_file("pima.csv")
 
     num_cols = len(data[0])
 
